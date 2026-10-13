@@ -1,64 +1,176 @@
+# Multiclass Image Classification — 1st Place
 
-# Multiclass Image Classification — Kaggle 1st Place
+I built this image classification system for a multiclass competition using CNNs trained from scratch.
 
-CNN ensemble trained **from scratch** on low-resolution RGB images (no pretrained weights).
+The final ensemble reached **93.4% test accuracy and finished 1st on the leaderboard**.
 
-| Metric | Value |
-|--------|-------|
-| Rank | **1st place** |
-| Test accuracy | **93.4%** |
-| Input | 16×16 RGB → upscaled to 32×32 |
-| Models | WideResNet-28-10, WideResNet-40-4, ResNet-110 |
+No pretrained models were used.
 
-## Method
+## Result
 
-1. **Upscale** 16×16 images to 32×32 (Lanczos)
-2. **Train 3 CNNs** with different architectures for diversity
-3. **Augment** with CutMix, Mixup, random crop/flip, brightness/contrast
-4. **Optimize** with SGD + Nesterov, cosine LR decay, label smoothing
-5. **Pseudo-label** high-confidence test samples (2 rounds: thresholds 0.95 → 0.98)
-6. **TTA** — 15 augmented passes per model at inference
-7. **Ensemble** — weights chosen by grid search on the validation set
+| | |
+|---|---|
+| **Final Rank** | 1st Place |
+| **Test Accuracy** | 93.4% |
+| **Input Images** | 16×16 RGB |
+| **Training** | From scratch |
+| **Final Ensemble** | 3 CNNs |
 
-## Requirements
+The original images were only 16×16 pixels, so one of the main challenges was extracting useful visual features from very limited image information.
 
-- Python 3.10+
-- GPU recommended (trained on Colab A100)
-- Competition data as pickle files (not included)
+## Approach
 
-## How to run (Google Colab)
+I did not rely on a single model.
 
-1. Upload `notebooks/Kaggle_Competition.ipynb` to Colab
-2. Runtime → Change runtime type → **GPU**
-3. Put data on Drive:
+The final solution combined three different CNN architectures:
 
+- WideResNet-28-10
+- WideResNet-40-4
+- ResNet-110
+
+Each model learns slightly different representations, so combining their predictions gave a stronger final result than using one network alone.
+
+## Training Pipeline
+
+```text
+16×16 RGB Images
+       |
+       v
+Lanczos Upscaling to 32×32
+       |
+       v
+Data Augmentation
+       |
+       ├── CutMix
+       ├── Mixup
+       ├── Random Crop
+       ├── Horizontal Flip
+       └── Brightness / Contrast
+       |
+       v
+Three CNN Models
+       |
+       ├── WideResNet-28-10
+       ├── WideResNet-40-4
+       └── ResNet-110
+       |
+       v
+Pseudo-Labeling
+       |
+       v
+Test-Time Augmentation
+       |
+       v
+Weighted Ensemble
+       |
+       v
+93.4% Accuracy — 1st Place
 ```
-MyDrive/kaggle-Competition/
-  train_X_y.pkl
-  test_X.pkl
+
+## Techniques I Used
+
+### Data augmentation
+
+Because the images were small, overfitting was an important problem.
+
+I used several augmentation strategies:
+
+- CutMix
+- Mixup
+- random cropping
+- horizontal flipping
+- brightness and contrast changes
+
+This gave the models more variation during training without requiring additional labeled data.
+
+### Training
+
+The models were trained using:
+
+- SGD with Nesterov momentum
+- cosine learning-rate decay
+- label smoothing
+
+I trained the architectures separately so the ensemble would have more model diversity.
+
+### Pseudo-labeling
+
+After the initial training, I used confident predictions from the test set as additional training examples.
+
+I used two pseudo-labeling rounds with confidence thresholds increasing from:
+
+```text
+0.95 → 0.98
 ```
 
-4. Run all cells in order
+Only high-confidence predictions were added.
 
-Locally (if you have the data and a GPU):
+### Test-Time Augmentation
 
-```bash
-pip install -r requirements.txt
-jupyter notebook notebooks/Kaggle_Competition.ipynb
+At inference time, each model predicts multiple augmented versions of the same image.
+
+I used **15 TTA passes per model** and averaged the predictions.
+
+### Ensemble
+
+The final prediction combines all three CNNs.
+
+Instead of giving every model the same importance, I searched for ensemble weights using validation performance.
+
+```text
+WideResNet-28-10
+        \
+WideResNet-40-4 ----> Weighted Ensemble ----> Final Prediction
+        /
+ResNet-110
 ```
 
-Update `BASE_PATH` in the notebook if your data folder is different.
+## Why the Ensemble Helped
 
-## Notes
+The three networks do not make exactly the same mistakes.
 
-- Models and submission CSV are written to Drive (`*.keras`, `submission_FINAL.csv`)
-- Weights and competition data are **not** in this repo
-- Re-running training may vary slightly due to GPU non-determinism
+A model may classify an image incorrectly while the other two predict it correctly. Combining them reduced some of these individual model errors and produced a more stable final prediction.
+
+This was especially useful with the low-resolution input images.
+
+## Tech Stack
+
+**Deep Learning:** TensorFlow, Keras  
+**Models:** WideResNet, ResNet  
+**Data:** NumPy, Pandas  
+**Training:** SGD, Nesterov, Cosine Decay  
+**Techniques:** CutMix, Mixup, Pseudo-Labeling, TTA, Model Ensembling  
+**Environment:** Google Colab / GPU
+
+## Repository
+
+```text
+kaggle-multiclass-ensemble/
+├── notebooks/
+│   └── Kaggle_Competition.ipynb
+├── requirements.txt
+└── README.md
+```
+
+The notebook contains the complete training and inference pipeline used for the competition.
+
+## What I would try next
+
+The competition is finished, but there are still several experiments I would explore to push the accuracy further:
+
+- stronger ensemble diversity
+- improved pseudo-label selection
+- calibration before pseudo-labeling
+- more systematic ensemble-weight optimization
+- additional augmentation experiments
+- error analysis by class
+
+For me, the most useful part of this project was seeing how much performance can come from the complete training pipeline, not only from choosing a larger model.
 
 ## Author
 
-**Mortadha Ghnimi**  
-MS Artificial Intelligence @ Grand Valley State University  
+**Mortadha Ghnimi**
 
-- LinkedIn: https://www.linkedin.com/in/mortadha-ghnimi-021183252/
+M.S. Artificial Intelligence — Grand Valley State University
 
+[GitHub](https://github.com/mortadhaghnimi) · [LinkedIn](https://www.linkedin.com/in/mortadha-ghnimi-021183252/)
